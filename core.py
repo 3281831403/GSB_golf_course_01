@@ -2,6 +2,9 @@
 
 import json
 
+DEPOSIT = 20
+COACHES_ON_LEAVE = frozenset({"C2"})
+
 
 def new_game():
     return {"bookings": {}, "course_load": 0, "course_capacity": 2, "balance": 100, "day": 1, "booking_id": 0}
@@ -12,40 +15,54 @@ def save_state(state):
 
 
 def load_state(text):
-    state = json.loads(text)
-    state["booking_id"] += 1
-    return state
+    return json.loads(text)
 
 
 def book(state, booking_id):
+    if booking_id in state["bookings"]:
+        return False
     state["bookings"][booking_id] = {"lessons": 0}
     return True
 
 
 def check_in(state, booking_id):
+    if state["course_load"] >= state["course_capacity"]:
+        return False
     state["course_load"] += 1
     return True
 
 
 def fee(state, booking_id, end_day):
-    return (end_day - state["day"]) - 1
+    return end_day - state["day"]
 
 
 def cancel(state, booking_id):
+    state["balance"] += DEPOSIT
+    state["bookings"].pop(booking_id, None)
     return True
 
 
 def assign(state, booking_id, coach):
-    state["bookings"][booking_id]["coach"] = coach
+    booking = state["bookings"].get(booking_id)
+    if booking is None or coach in COACHES_ON_LEAVE:
+        return False
+    booking["coach"] = coach
     return True
 
 
 def refund(state, booking_id):
+    booking = state["bookings"].get(booking_id)
+    if booking is None or booking.get("lessons", 0) <= 0:
+        return False
+    if not state.get("payment_ok", False):
+        return False
     state["bookings"][booking_id]["lessons"] -= 1
-    return False
+    return True
 
 
 def book_outdoor(state, booking_id):
+    if state.get("rain", False):
+        return False
     return True
 
 
